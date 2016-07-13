@@ -2,7 +2,7 @@
 	<head>
 		<title>ISCC 2048</title>
 		<meta http-equiv='content-type' content='text/html;charset=gb2312' />
-		<script language="javascript" src="jquery.min.js"></script>
+		<script language="javascript" src="http://code.jquery.com/jquery-latest.js"></script>
 		<style type="text/css">
 			body,div,ul,li,p{padding:0;margin:0;border-radius:10px;}
 			body{
@@ -42,10 +42,10 @@
 		</style>
 	</head>
 	<body onload="init();" onkeyup="run();">
+		<p style="float:right;">玩家：<span id="score">{{request.session.uname}}</span></p>
 		<div class="game_box">
 			<div class="info">
-				<p style="float:right;">得分：<span id="score">0</span></p>
-				最大值：<span id="max_value">0</span>
+				<p style="float:right;">得分：<span id="score">0</span></p>最大值：<span id="max_value">0</span>
 			</div>
 			<ul class="main_box">
 				<li id="11"></li>
@@ -71,7 +71,8 @@
 			<p class="rule">2.当点击了一个方向时，格子中的数字会全部往那个方向移动，直到不能再移动，如果有相同的数字则会合并</p>
 			<p class="rule">3.当格子中不再有可移动和可合并的数字时，游戏结束</p>
 			<p class="rule">4.发现作弊行为游戏结束，游戏结束</p>
-			<p class="rule">5.最高分为2048，游戏结束，奖励@#￥</p>
+			<p class="rule">5.最高分为2048，游戏结束，奖励￥1</p>
+			<a href="/game/reset"><button class="btn btn-lg btn-success btn-block" type="submit">重置游戏</button></a>
 		</div>
 	</body>
 	<script type="text/javascript">
@@ -169,9 +170,8 @@
 				if(done) {//如果此次有移动或合并，即有效操作，则生成新的数字
 					;
 				}
-				create_and_set_num()
+				create_and_set_num();
 				update_max_value();//更新最大值
-				judge_success();
 				draw();//重新绘制表格用于显示
 			}
 		}
@@ -214,26 +214,51 @@
 
 		function set_direction() {//设置此次移动的方向
 			direction = event.keyCode;
+			if(direction==37){
+				direction='l';
+			}else if(direction==38){
+				direction='u';
+			}else if(direction==39){
+				direction='r';
+			}else if (direction==40){
+				direction='d';
+			}
 			send_to_server(direction);
 		}
 
 		function send_to_server(direction){
-			;
+			response=$.ajax({url:"/game/check?direction="+direction,async:false}).responseText;
+			if(response=='cheat'){
+				//初始化化全局变量
+				table = {
+				11:0,12:0,13:0,14:0,
+				21:0,22:0,23:0,24:0,
+				31:0,32:0,33:0,34:0,
+				41:0,42:0,43:0,44:0
+				};
+				cur_queue = null;//由于移动时是一行或一列移动的，此变量代表需要处理的当前行和列
+				direction = 0;//当前操作移动的方向
+				max_value = 0;//最大值
+				score = 0;//最高分数
+				window.location.href="/game";
+			}else{
+				judge_success();
+			}
 		}
 
 		function judge_success(){
-			;
+			if(response=='success'){
+				alert('You are my precious!');
+				response=$.ajax({url:"/user/score",async:false}).responseText;
+				alert('Your score is '+response+'now! get  $1000  then you would get your flag!');
+				window.location.href='/game';
+			}
 		}
 		function set_new_num(empty_box) {//生成新的数字
-			var num = 0;
-			var ranNum = Math.random()*100;
-			if(ranNum>80) {
-				num = 4;
-			}else {
-				num = 2;
-			}
-			var box_num = Math.floor(Math.random()*(empty_box.length));
-			table[empty_box[box_num]] = num;
+			response=$.ajax({url:"/game/random",async:false}).responseText.split(":");
+			var box_num = response[0];
+			var num = response[1];
+			table[box_num] = num;
 		}
 
 		function find_empty_box() {//获得所有的空格子，即值为0的格子集合

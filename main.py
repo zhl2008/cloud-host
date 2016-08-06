@@ -9,21 +9,9 @@ import hashlib
 import socket
 import redis
 import json
+import random
+from config import *
 
-sleep_time=120
-redis_ip='10.15.9.32'
-redis_port=6379
-redis_pass='nscnscnscnsc'
-http_ip='10.15.9.32'
-http_port='80'
-http_pass='fuckthegfw'
-error_log='/tmp/cloud-host/cloud_host_err.log'
-info_log='/tmp/cloud-host/cloud_host_info.log'
-resolv_list='/tmp/cloud-host/resolv.list'
-dns_list='/tmp/cloud-host/dns.list'
-write_log_allow=True
-thread_num=20
-allow_ipv6=True
 
 
 def log(type,msg):
@@ -121,8 +109,24 @@ class Cloud_Host(threading.Thread):
     def ip_validate_check(self,data):
         '''I am too lazy to use the re moudule, so I use ping instead
         you should change it by yourself'''
-        if ';' in data:
-            return 0
+	ipv4 = ['.']
+	ipv6 = [':','a','b','c','d','e','f']
+	flag = '0'
+	for char in data:
+	    if char.isdigit():
+		pass
+	    elif char in ipv4 :
+		if flag =='6':
+		    return 0
+		flag = '4'
+	    elif char in ipv6:
+		if flag=='4':
+		    return 0
+		flag = '6'
+	    else:
+		return 0
+	    
+	    
         r1=os.popen('ping '+data+' -c 1 -w  1 2>/dev/null').read()
         r2=os.popen('ping6 '+data+' -c 1 -w 1 2>/dev/null').read()
         if r1 or r2:
@@ -171,7 +175,8 @@ class Cloud_Host(threading.Thread):
             if redis_con.get("ip:"+self.ip):
                 return
             if self.level==2:
-                log('warning','one possible result found') 
+                log('warning','one possible result found')
+		log('warning',str(self.queue.qsize())+" tasks remains") 
             redis_con.set("ip:"+self.ip,"1")
             redis_con.hset("domain:"+self.domain,"ip_"+str(self.count),self.ip)
             redis_con.hset("domain:"+self.domain,"dns_"+str(self.count),self.dns)
@@ -181,7 +186,10 @@ class Cloud_Host(threading.Thread):
 
 def thread_ctrl(thread_num):
     #init the queue
-    queue=Queue.Queue(1000)
+    queue=Queue.Queue(100000)
+    #random order
+    random.shuffle(dns_servers)
+    random.shuffle(resolv_domains)
     for dns in dns_servers:
         for domain in resolv_domains:
             queue.put(dns+"||"+domain)
